@@ -1,0 +1,101 @@
+# Copyright 2020 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import datetime
+import json
+import logging
+
+from splunk.persistconn.application import PersistentServerConnectionApplication
+from splunk.rest import simpleRequest
+
+logger = logging.getLogger(__name__)
+
+class HelloWorld(PersistentServerConnectionApplication):
+
+    def __init__(self, _command_line, _command_arg):
+        logging.basicConfig(level=logging.INFO)
+        super(PersistentServerConnectionApplication, self).__init__()
+
+
+
+    # Handle a syncronous from splunkd.
+    def handle(self, in_string):
+        """
+        Called for a simple synchronous request.
+        @param in_string: request data passed in
+        @rtype: string or dict
+        @return: String to return in response.  If a dict was passed in,
+                 it will automatically be JSON encoded before being returned.
+        """
+        in_dict = {}
+        name = ""
+
+        try:
+            in_dict = json.loads(in_string.decode('utf-8'))
+            authtoken = in_dict["session"]["authtoken"]
+            name = in_dict["query"]["name"]
+        except Exception as e:
+            content = "error decoding json - {}".format(str(e))
+            authtoken = "error! see content var"
+
+        try:
+            assert in_dict["query"][0] == "name"
+        except:
+            print("error")
+            break
+
+        endpoint = "/services/saved/searches"
+
+        try:
+            response, content = simpleRequest(path=endpoint, sessionKey=authtoken, method="GET")
+        except Exception as e:
+            print("Error making request")
+            content = "empty - {}".format(str(e))
+
+        payload = {
+                "text": "foo",
+                "authtoken": authtoken,
+                "in_str": str(in_string),
+                "in_dict": in_dict
+                }
+
+#        try:
+#            payload = {
+#                "text": "Hello world!!!!!!",
+#                "foo":  str(in_string),
+#                "bat":  str(self),
+#                "time": str(datetime.datetime.now()),
+#                "authtoken": json.loads(in_string.decode('utf-8'))["session"],
+#                "content": content,
+#                "authtoken_actual": authtoken,
+#                "in_dict": in_dict
+#            }
+#        except Exception as e:
+#            payload = {"exception": str(e)}
+#
+        return {'payload': payload, 'status': 200}
+
+    def handleStream(self, handle, in_string):
+        """
+        For future use
+        """
+        raise NotImplementedError(
+            "PersistentServerConnectionApplication.handleStream")
+
+    def done(self):
+        """
+        Virtual method which can be optionally overridden to receive a
+        callback after the request completes.
+        """
+        pass
